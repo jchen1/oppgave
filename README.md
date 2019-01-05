@@ -38,12 +38,11 @@ See [`examples/worker.rs`](examples/worker.rs) for a working example.
 Run it with `cargo run --example worker`.
 
 ```rust
-#[derive(RustcDecodable, RustcEncodable)]
+#[derive(Deserialize, Serialize)]
 struct Job { id: u64 }
 
 let client = redis::Client::open("redis://127.0.0.1/").unwrap();
-let con = client.get_connection().unwrap();
-let producer = Queue::new("default".into(), con);
+let producer = Queue::new("default".into(), client);
 
 producer.push(Job{ id: 42 });
 ```
@@ -54,12 +53,11 @@ See [`examples/worker.rs`](examples/worker.rs) for a working example.
 Run it with `cargo run --example worker`.
 
 ```rust
-#[derive(RustcDecodable, RustcEncodable)]
+#[derive(Deserialize, Serialize)]
 struct Job { id: u64 }
 
 let client = redis::Client::open("redis://127.0.0.1/").unwrap();
-let con = client.get_connection().unwrap();
-let worker = Queue::new("default".into(), con);
+let worker = Queue::new("default".into(), client);
 
 while let Some(task) = worker.next() {
     println!("Working with Job {}", job.id);

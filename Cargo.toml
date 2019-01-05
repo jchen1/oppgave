@@ -1,6 +1,6 @@
 [package]
 name = "oppgave"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Jan-Erik Rediger <janerik@fnordig.de>"]
 
 keywords = ["queue", "redis"]
@@ -9,9 +9,9 @@ description = "A simple Redis-based task queue"
 readme = "README.md"
 license = "MIT"
 
-homepage = "https://github.com/badboy/oppgave"
-repository = "https://github.com/badboy/oppgave"
-documentation = "https://badboy.github.io/oppgave"
+homepage = "https://github.com/jchen1/oppgave"
+repository = "https://github.com/jchen1/oppgave"
+# documentation = "https://badboy.github.io/oppgave"
 
 include = [
   "README.md",
@@ -22,9 +22,9 @@ include = [
 ]
 
 [dependencies]
-redis = "0.8.0"
+redis = "0.9"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
-libc = "0.2.7"
-clippy = {version = "*", optional = true}
+libc = "0.2.46"
+clippy = {version = "0.0.302", optional = true}

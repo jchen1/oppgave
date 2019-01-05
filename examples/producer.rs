@@ -14,8 +14,7 @@ struct Job {
 
 fn main() {
     let client = redis::Client::open("redis://127.0.0.1/").unwrap();
-    let con = client.get_connection().unwrap();
-    let q = Queue::new("default".into(), con);
+    let q = Queue::new("default".into(), client);
 
     println!("Enqueuing jobs");
 

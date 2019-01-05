@@ -228,16 +228,17 @@ impl<'a, T> Drop for TaskGuard<'a, T> {
 /// ```
 ///
 ///
+#[derive(Clone)]
 pub struct Queue {
     queue_name: String,
     backup_queue: String,
     stopped: Cell<bool>,
-    client: redis::Connection,
+    client: redis::Client,
 }
 
 impl Queue {
     /// Create a new Queue for the given name
-    pub fn new(name: String, client: redis::Connection) -> Queue {
+    pub fn new(name: String, client: redis::Client) -> Queue {
         let qname = format!("oppgave:{}", name);
         let backup_queue = format!(
             "{}:{}:{}",
@@ -252,6 +253,10 @@ impl Queue {
             client: client,
             stopped: Cell::new(false),
         }
+    }
+
+    fn connection(&self) -> RedisResult<redis::Connection> {
+        self.client.get_connection()
     }
 
     /// Stop processing the queue
@@ -278,12 +283,12 @@ impl Queue {
 
     /// Get the number of remaining tasks in the queue
     pub fn size(&self) -> u64 {
-        self.client.llen(self.queue()).unwrap_or(0)
+        self.connection().and_then(|con| con.llen(self.queue())).unwrap_or(0)
     }
 
     /// Push a new task to the queue
     pub fn push<T: TaskEncodable>(&self, task: T) -> RedisResult<()> {
-        self.client.lpush(self.queue(), task.encode_task())
+        self.connection()?.lpush(self.queue(), task.encode_task())
     }
 
     /// Grab the next task from the queue
@@ -299,7 +304,7 @@ impl Queue {
             let qname = &self.queue_name[..];
             let backup = &self.backup_queue[..];
 
-            v = match self.client.brpoplpush(qname, backup, 0) {
+            v = match self.connection().and_then(|con| con.brpoplpush(qname, backup, 0)) {
                 Ok(v) => v,
                 Err(_) => {
                     return Some(Err(From::from((ErrorKind::TypeError, "next failed"))));
@@ -342,10 +347,9 @@ mod test {
 
     #[test]
     fn decodes_job() {
-        let client = redis::Client::open("redis://127.0.0.1:6380/").unwrap();
+        let client = redis::Client::open("redis://127.0.0.1:6379/").unwrap();
         let con = client.get_connection().unwrap();
-        let con2 = client.get_connection().unwrap();
-        let worker = Queue::new("default".into(), con2);
+        let worker = Queue::new("default".into(), client);
 
         let _: () = con.rpush(worker.queue(), "{\"id\":42}").unwrap();
 
@@ -355,10 +359,9 @@ mod test {
 
     #[test]
     fn releases_job() {
-        let client = redis::Client::open("redis://127.0.0.1:6380/").unwrap();
+        let client = redis::Client::open("redis://127.0.0.1:6379/").unwrap();
         let con = client.get_connection().unwrap();
-        let con2 = client.get_connection().unwrap();
-        let worker = Queue::new("default".into(), con2);
+        let worker = Queue::new("default".into(), client);
         let bqueue = worker.backup_queue();
 
         let _: () = con.del(bqueue).unwrap();
@@ -378,10 +381,9 @@ mod test {
 
     #[test]
     fn can_be_stopped() {
-        let client = redis::Client::open("redis://127.0.0.1:6380/").unwrap();
+        let client = redis::Client::open("redis://127.0.0.1:6379/").unwrap();
         let con = client.get_connection().unwrap();
-        let con2 = client.get_connection().unwrap();
-        let worker = Queue::new("stopper".into(), con2);
+        let worker = Queue::new("stopper".into(), client);
 
         let _: () = con.del(worker.queue()).unwrap();
         let _: () = con.lpush(worker.queue(), "{\"id\":1}").unwrap();
@@ -400,11 +402,10 @@ mod test {
 
     #[test]
     fn can_enqueue() {
-        let client = redis::Client::open("redis://127.0.0.1:6380/").unwrap();
+        let client = redis::Client::open("redis://127.0.0.1:6379/").unwrap();
         let con = client.get_connection().unwrap();
-        let con2 = client.get_connection().unwrap();
 
-        let worker = Queue::new("enqueue".into(), con2);
+        let worker = Queue::new("enqueue".into(), client);
         let _: () = con.del(worker.queue()).unwrap();
 
         assert_eq!(0, worker.size());
@@ -419,10 +420,9 @@ mod test {
 
     #[test]
     fn does_not_drop_failed() {
-        let client = redis::Client::open("redis://127.0.0.1:6380/").unwrap();
+        let client = redis::Client::open("redis://127.0.0.1:6379/").unwrap();
         let con = client.get_connection().unwrap();
-        let con2 = client.get_connection().unwrap();
-        let worker = Queue::new("failure".into(), con2);
+        let worker = Queue::new("failure".into(), client);
 
         let _: () = con.del(worker.queue()).unwrap();
         let _: () = con.del(worker.backup_queue()).unwrap();

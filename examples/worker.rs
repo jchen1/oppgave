@@ -12,8 +12,7 @@ struct Job {
 
 fn main() {
     let client = redis::Client::open("redis://127.0.0.1/").unwrap();
-    let con = client.get_connection().unwrap();
-    let worker = Queue::new("default".into(), con);
+    let worker = Queue::new("default".into(), client);
 
     println!("Starting worker with queue `default`");
 

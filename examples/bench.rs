@@ -23,8 +23,7 @@ impl Job {
 
 fn load(n: usize) {
     let client = redis::Client::open("redis://127.0.0.1/").unwrap();
-    let con = client.get_connection().unwrap();
-    let q = Queue::new("default".into(), con);
+    let q = Queue::new("default".into(), client);
 
     let now = Instant::now();
     for i in 0..n {
@@ -77,8 +76,7 @@ fn main() {
 
 
     let client = redis::Client::open("redis://127.0.0.1/").unwrap();
-    let con = client.get_connection().unwrap();
-    let worker = Queue::new("default".into(), con);
+    let worker = Queue::new("default".into(), client);
 
     while let Some(task) = worker.next::<Job>() {
         if task.is_err() {
