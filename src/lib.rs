@@ -293,8 +293,9 @@ impl Queue {
 
     /// Grab the next task from the queue
     ///
-    /// This method blocks and waits until a new task is available.
-    pub fn next<T: TaskDecodable>(&self) -> Option<RedisResult<TaskGuard<T>>> {
+    /// This method blocks for `timeout` ms and waits until a new task is available.
+    /// timeout of 0 will block indefinitely
+    pub fn next<T: TaskDecodable>(&self, timeout: usize) -> Option<RedisResult<TaskGuard<T>>> {
         if self.stopped.get() {
             return None;
         }
@@ -304,7 +305,7 @@ impl Queue {
             let qname = &self.queue_name[..];
             let backup = &self.backup_queue[..];
 
-            v = match self.connection().and_then(|con| con.brpoplpush(qname, backup, 0)) {
+            v = match self.connection().and_then(|con| con.brpoplpush(qname, backup, timeout)) {
                 Ok(v) => v,
                 Err(_) => {
                     return Some(Err(From::from((ErrorKind::TypeError, "next failed"))));
@@ -353,7 +354,7 @@ mod test {
 
         let _: () = con.rpush(worker.queue(), "{\"id\":42}").unwrap();
 
-        let j = worker.next::<Job>().unwrap().unwrap();
+        let j = worker.next::<Job>(0).unwrap().unwrap();
         assert_eq!(42, j.id);
     }
 
@@ -368,7 +369,7 @@ mod test {
         let _: () = con.lpush(worker.queue(), "{\"id\":42}").unwrap();
 
         {
-            let j = worker.next::<Job>().unwrap().unwrap();
+            let j = worker.next::<Job>(0).unwrap().unwrap();
             assert_eq!(42, j.id);
             let in_backup: Vec<String> = con.lrange(bqueue, 0, -1).unwrap();
             assert_eq!(1, in_backup.len());
@@ -392,7 +393,7 @@ mod test {
 
         assert_eq!(3, worker.size());
 
-        while let Some(task) = worker.next::<Job>() {
+        while let Some(task) = worker.next::<Job>(0) {
             let _task = task.unwrap();
             worker.stop();
         }
@@ -414,7 +415,7 @@ mod test {
 
         assert_eq!(1, worker.size());
 
-        let j = worker.next::<Job>().unwrap().unwrap();
+        let j = worker.next::<Job>(0).unwrap().unwrap();
         assert_eq!(53, j.id);
     }
 
@@ -429,7 +430,7 @@ mod test {
         let _: () = con.lpush(worker.queue(), "{\"id\":1}").unwrap();
 
         {
-            let task: TaskGuard<Job> = worker.next().unwrap().unwrap();
+            let task: TaskGuard<Job> = worker.next(0).unwrap().unwrap();
             task.fail();
         }
 

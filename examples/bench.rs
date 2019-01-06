@@ -78,7 +78,7 @@ fn main() {
     let client = redis::Client::open("redis://127.0.0.1/").unwrap();
     let worker = Queue::new("default".into(), client);
 
-    while let Some(task) = worker.next::<Job>() {
+    while let Some(task) = worker.next::<Job>(0) {
         if task.is_err() {
             continue;
         }

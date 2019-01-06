@@ -16,7 +16,7 @@ fn main() {
 
     println!("Starting worker with queue `default`");
 
-    while let Some(task) = worker.next::<Job>() {
+    while let Some(task) = worker.next::<Job>(0) {
         if task.is_err() {
             continue;
         }
